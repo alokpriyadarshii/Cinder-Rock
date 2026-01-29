@@ -1,4 +1,3 @@
-
 # Cinder Rock
 
 ---
