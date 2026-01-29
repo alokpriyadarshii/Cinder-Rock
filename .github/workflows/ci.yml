@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build core services
+        run: |
+          for s in order-service inventory-service payment-service notification-service; do
+            echo "==> $s"
+            (cd services/$s && go mod tidy && go build ./...)
+          done

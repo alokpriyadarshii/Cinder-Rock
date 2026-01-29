@@ -1,0 +1,2 @@
+CREATE DATABASE ordersdb;
+CREATE DATABASE inventorydb;

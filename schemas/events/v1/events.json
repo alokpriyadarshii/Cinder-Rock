@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Redstone Events v1",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/OrderCreated" },
+    { "$ref": "#/$defs/InventoryReserved" },
+    { "$ref": "#/$defs/InventoryFailed" },
+    { "$ref": "#/$defs/PaymentCaptured" },
+    { "$ref": "#/$defs/PaymentFailed" },
+    { "$ref": "#/$defs/OrderConfirmed" },
+    { "$ref": "#/$defs/OrderCancelled" }
+  ],
+  "$defs": {
+    "BaseEvent": {
+      "type": "object",
+      "properties": {
+        "event_id": { "type": "string" },
+        "event_type": { "type": "string" },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "correlation_id": { "type": "string" }
+      },
+      "required": ["event_id","event_type","occurred_at","correlation_id"]
+    },
+    "OrderItem": {
+      "type":"object",
+      "properties": {
+        "sku":{"type":"string"},
+        "qty":{"type":"integer","minimum":1},
+        "unit_price":{"type":"integer","minimum":0}
+      },
+      "required":["sku","qty","unit_price"]
+    },
+    "OrderCreated": {
+      "allOf": [
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {
+            "order_id":{"type":"string"},
+            "user_id":{"type":"string"},
+            "items":{"type":"array","items":{"$ref":"#/$defs/OrderItem"}}
+          },
+          "required":["order_id","user_id","items"]
+        }
+      ]
+    },
+    "InventoryReserved": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}},
+          "required":["order_id"]
+        }
+      ]
+    },
+    "InventoryFailed": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}, "reason":{"type":"string"}},
+          "required":["order_id","reason"]
+        }
+      ]
+    },
+    "PaymentCaptured": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}, "amount":{"type":"integer"}},
+          "required":["order_id","amount"]
+        }
+      ]
+    },
+    "PaymentFailed": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}, "reason":{"type":"string"}},
+          "required":["order_id","reason"]
+        }
+      ]
+    },
+    "OrderConfirmed": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}},
+          "required":["order_id"]
+        }
+      ]
+    },
+    "OrderCancelled": {
+      "allOf":[
+        { "$ref":"#/$defs/BaseEvent" },
+        { "type":"object",
+          "properties": {"order_id":{"type":"string"}, "reason":{"type":"string"}},
+          "required":["order_id","reason"]
+        }
+      ]
+    }
+  }
+}

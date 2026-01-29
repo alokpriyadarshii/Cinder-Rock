@@ -1,0 +1,150 @@
+name: redstone
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.9
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+
+  topic-init:
+    image: redpandadata/redpanda:v24.2.9
+    depends_on:
+      - redpanda
+    entrypoint: ["/bin/sh","-lc"]
+    command: >
+      "rpk topic create redstone.orders redstone.inventory redstone.payments redstone.notifications -p 3 || true;
+       echo topics-ready"
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.58
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+
+  order-service:
+    build: ./services/order-service
+    environment:
+      SERVICE_NAME: order-service
+      HTTP_PORT: "8081"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/ordersdb?sslmode=disable
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_ORDERS: redstone.orders
+      KAFKA_TOPIC_INVENTORY: redstone.inventory
+      KAFKA_TOPIC_PAYMENTS: redstone.payments
+      KAFKA_GROUP_ID: order-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      topic-init:
+        condition: service_completed_successfully
+
+  inventory-service:
+    build: ./services/inventory-service
+    environment:
+      SERVICE_NAME: inventory-service
+      HTTP_PORT: "8082"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/inventorydb?sslmode=disable
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_ORDERS: redstone.orders
+      KAFKA_TOPIC_INVENTORY: redstone.inventory
+      KAFKA_GROUP_ID: inventory-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      topic-init:
+        condition: service_completed_successfully
+
+  payment-service:
+    build: ./services/payment-service
+    environment:
+      SERVICE_NAME: payment-service
+      HTTP_PORT: "8083"
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_INVENTORY: redstone.inventory
+      KAFKA_TOPIC_PAYMENTS: redstone.payments
+      KAFKA_GROUP_ID: payment-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      redpanda:
+        condition: service_started
+      topic-init:
+        condition: service_completed_successfully
+
+  notification-service:
+    build: ./services/notification-service
+    environment:
+      SERVICE_NAME: notification-service
+      HTTP_PORT: "8084"
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_NOTIFICATIONS: redstone.notifications
+      KAFKA_TOPIC_ORDERS: redstone.orders
+      KAFKA_TOPIC_INVENTORY: redstone.inventory
+      KAFKA_TOPIC_PAYMENTS: redstone.payments
+      KAFKA_GROUP_ID: notification-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      redpanda:
+        condition: service_started
+      topic-init:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
