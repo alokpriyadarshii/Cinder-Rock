@@ -171,6 +171,10 @@ func (a *App) createOrderHandler(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(ord)
 		return
 	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "db error", 500)
+		return
+	}
 
 	orderID := "ord_" + uuid.NewString()
 	corr := uuid.NewString()
