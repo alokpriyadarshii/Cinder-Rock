@@ -11,20 +11,21 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/redstone/order-service/internal/redstone"
 )
 
 type Config struct {
-	ServiceName         string
-	HTTPPort            string
-	DatabaseURL         string
-	KafkaBrokers        []string
-	TopicOrders         string
-	TopicInventory       string
-	TopicPayments        string
-	GroupID             string
+	ServiceName    string
+	HTTPPort       string
+	DatabaseURL    string
+	KafkaBrokers   []string
+	TopicOrders    string
+	TopicInventory string
+	TopicPayments  string
+	GroupID        string
 }
 
 type CreateOrderRequest struct {
@@ -57,14 +58,14 @@ func parseCSV(s string) []string {
 
 func main() {
 	cfg := Config{
-		ServiceName:   env("SERVICE_NAME", "order-service"),
-		HTTPPort:      env("HTTP_PORT", "8081"),
-		DatabaseURL:   env("DATABASE_URL", ""),
-		KafkaBrokers:  parseCSV(env("KAFKA_BROKERS", "localhost:9092")),
-		TopicOrders:   env("KAFKA_TOPIC_ORDERS", "redstone.orders"),
+		ServiceName:    env("SERVICE_NAME", "order-service"),
+		HTTPPort:       env("HTTP_PORT", "8081"),
+		DatabaseURL:    env("DATABASE_URL", ""),
+		KafkaBrokers:   parseCSV(env("KAFKA_BROKERS", "localhost:9092")),
+		TopicOrders:    env("KAFKA_TOPIC_ORDERS", "redstone.orders"),
 		TopicInventory: env("KAFKA_TOPIC_INVENTORY", "redstone.inventory"),
-		TopicPayments: env("KAFKA_TOPIC_PAYMENTS", "redstone.payments"),
-		GroupID:       env("KAFKA_GROUP_ID", "order-service"),
+		TopicPayments:  env("KAFKA_TOPIC_PAYMENTS", "redstone.payments"),
+		GroupID:        env("KAFKA_GROUP_ID", "order-service"),
 	}
 
 	log := redstone.NewLogger(cfg.ServiceName)
