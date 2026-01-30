@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/redstone/inventory-service/internal/redstone"
 )
@@ -44,14 +46,19 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 			_ = a.consumer.Commit(ctx, m)
 			continue
 		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		  a.log.Error("event dedupe lookup failed", map[string]any{"err": err.Error(), "event_id": ev.EventID})
+		  time.Sleep(500 * time.Millisecond)
+		  continue
+		}
 
 		ok, reason := a.tryReserve(ctx, ev.OrderID, ev.Items)
 		if ok {
 			out := redstone.InventoryReserved{
 				BaseEvent: redstone.BaseEvent{
-					EventID: uuid.NewString(),
-					EventType: "InventoryReserved",
-					OccurredAt: time.Now().UTC(),
+					EventID:       uuid.NewString(),
+					EventType:     "InventoryReserved",
+					OccurredAt:    time.Now().UTC(),
 					CorrelationID: ev.CorrelationID,
 				},
 				OrderID: ev.OrderID,
@@ -60,13 +67,13 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 		} else {
 			out := redstone.InventoryFailed{
 				BaseEvent: redstone.BaseEvent{
-					EventID: uuid.NewString(),
-					EventType: "InventoryFailed",
-					OccurredAt: time.Now().UTC(),
+					EventID:       uuid.NewString(),
+					EventType:     "InventoryFailed",
+					OccurredAt:    time.Now().UTC(),
 					CorrelationID: ev.CorrelationID,
 				},
 				OrderID: ev.OrderID,
-				Reason: reason,
+	            Reason:  reason,
 			}
 			_ = a.producer.Write(ctx, ev.OrderID, out)
 		}
