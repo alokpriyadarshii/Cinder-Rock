@@ -8,7 +8,7 @@ set -euo pipefail
 
 ---
 
-cd "Cinder Rock"
+cd "Cinder-Rock"
 
 ## 2) Start stack in background
 
@@ -54,5 +54,4 @@ docker compose down -v
 
 ---
 
-cd "Cinder Rock" 2>/dev/null || true && docker compose up --build -d && HOST=127.0.0.1 ORDER="http://${HOST}:8081" INVENTORY="http://${HOST}:8082" PAYMENT="http://${HOST}:8083" NOTIFY="http://${HOST}:8084" && for S in "$ORDER"
-
+cd "Cinder-Rock" 2>/dev/null || true && docker compose up --build -d && HOST=127.0.0.1 ORDER="http://${HOST}:8081" INVENTORY="http://${HOST}:8082" PAYMENT="http://${HOST}:8083" NOTIFY="http://${HOST}:8084" && for S in "$ORDER" "$INVENTORY" "$PAYMENT" "$NOTIFY"; do until curl -sf "$S/healthz" >/dev/null; do sleep 0.2; done; done && echo "== create order =="; curl -s -X POST "${ORDER}/v1/orders" -H 'Content-Type: application/json' -H 'Idempotency-Key: demo-123' -d '{"user_id":"u_100","items":[{"sku":"SKU-RED-1","qty":1,"unit_price":1999}]}' | python -m json.tool && echo "== replay (same key) =="; curl -s -X POST "${ORDER}/v1/orders" -H 'Content-Type: application/json' -H 'Idempotency-Key: demo-123' -d '{"user_id":"u_100","items":[{"sku":"SKU-RED-1","qty":1,"unit_price":1999}]}' | python -m json.tool
