@@ -50,7 +50,7 @@ Redpanda: http://localhost:9644
 
 docker compose down -v
 
-## 8) All commands at once (one paste)
+## 8) All commands at once
 
 ---
 
