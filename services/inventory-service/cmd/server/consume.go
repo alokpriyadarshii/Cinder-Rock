@@ -54,9 +54,11 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 				_ = a.consumer.Commit(ctx, m)
 				continue
 			}
+
 			ok, reason := a.tryReserve(ctx, ev.OrderID, ev.Items)
+			var out any
 			if ok {
-				out := redstone.InventoryReserved{
+				out = redstone.InventoryReserved{
 					BaseEvent: redstone.BaseEvent{
 						EventID:       uuid.NewString(),
 						EventType:     "InventoryReserved",
@@ -65,9 +67,8 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 					},
 					OrderID: ev.OrderID,
 				}
-				_ = a.producer.Write(ctx, ev.OrderID, out)
 			} else {
-				out := redstone.InventoryFailed{
+				out = redstone.InventoryFailed{
 					BaseEvent: redstone.BaseEvent{
 						EventID:       uuid.NewString(),
 						EventType:     "InventoryFailed",
@@ -78,6 +79,7 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 					Reason:  reason,
 				}
 			}
+			_ = a.producer.Write(ctx, ev.OrderID, out)
 		case "OrderConfirmed":
 			var ev redstone.OrderConfirmed
 			if json.Unmarshal(m.Value, &ev) == nil {
@@ -92,7 +94,6 @@ func (a *App) consumeOrdersLoop(ctx context.Context) {
 					a.log.Error("release reservation failed", map[string]any{"err": err.Error(), "order_id": ev.OrderID})
 				}
 			}
-			_ = a.producer.Write(ctx, ev.OrderID, out)
 		}
 
 		_, _ = a.db.Exec(ctx, `insert into processed_events(event_id,processed_at) values ($1,now()) on conflict (event_id) do nothing`, eventID)
@@ -130,7 +131,6 @@ func (a *App) tryReserve(ctx context.Context, orderID string, items []redstone.O
 	a.log.Info("inventory reserved", map[string]any{"order_id": orderID})
 	return true, ""
 }
-
 
 func (a *App) finalizeReservation(ctx context.Context, orderID string) error {
 	return a.updateReservation(ctx, orderID, "COMPLETED", true)
